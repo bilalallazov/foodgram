@@ -10,7 +10,8 @@ from recipes.models import Ingredient, Recipe, RecipeIngredient, Tag
 User = get_user_model()
 
 IMAGE_BYTES = base64.b64decode(
-    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42m'
+    'P8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
 )
 
 
@@ -46,7 +47,9 @@ class Command(BaseCommand):
         ingredients = list(Ingredient.objects.all()[:5])
         if not tags or len(ingredients) < 2:
             self.stdout.write(
-                self.style.WARNING('Run load_ingredients and create_tags first.')
+                self.style.WARNING(
+                    'Run load_ingredients and create_tags first.'
+                )
             )
             return
         chefs = User.objects.filter(username__in=('chef1', 'chef2'))
