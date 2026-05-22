@@ -18,7 +18,8 @@ services:
       - postgres_data:/var/lib/postgresql/data
 
   backend:
-    build: ../backend
+    image: cr.yandex/${YC_REGISTRY_ID}/foodgram_backend:latest
+    pull_policy: always
     container_name: foodgram-backend
     env_file: .env
     volumes:

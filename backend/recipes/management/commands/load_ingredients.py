@@ -10,7 +10,7 @@ class Command(BaseCommand):
     help = 'Load ingredients from CSV file'
 
     def handle(self, *args, **options):
-        file_path = settings.PROJECT_DIR / 'data' / 'ingredients.csv'
+        file_path = settings.BASE_DIR / 'data' / 'ingredients.csv'
         ingredients = []
         with open(file_path, encoding='utf-8') as file:
             reader = csv.reader(file)

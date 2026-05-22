@@ -1,0 +1,54 @@
+name: Foodgram Deploy
+
+on:
+  workflow_run:
+    workflows: [Foodgram CI]
+    types:
+      - completed
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    steps:
+      - name: Check deploy secrets
+        run: |
+          test -n "${{ secrets.HOST }}" || (echo "::error::Добавьте секрет HOST (IP ВМ)" && exit 1)
+          test -n "${{ secrets.USER }}" || (echo "::error::Добавьте секрет USER (yc-user)" && exit 1)
+          test -n "${{ secrets.SSH_PRIVATE_KEY }}" || (echo "::error::Добавьте секрет SSH_PRIVATE_KEY" && exit 1)
+          test -n "${{ secrets.YC_REGISTRY_ID }}" || (echo "::error::Добавьте секрет YC_REGISTRY_ID" && exit 1)
+          test -n "${{ secrets.YC_SA_JSON_CREDENTIALS }}" || (echo "::error::Добавьте секрет YC_SA_JSON_CREDENTIALS" && exit 1)
+
+      - name: Deploy to server
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          YC_SA_JSON_CREDENTIALS: ${{ secrets.YC_SA_JSON_CREDENTIALS }}
+          YC_REGISTRY_ID: ${{ secrets.YC_REGISTRY_ID }}
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          envs: YC_SA_JSON_CREDENTIALS,YC_REGISTRY_ID
+          script_stop: true
+          script: |
+            set -e
+            if [ ! -d "$HOME/foodgram" ]; then
+              git clone https://github.com/bilalallazov/foodgram.git "$HOME/foodgram"
+            fi
+            cd "$HOME/foodgram"
+            git pull origin main
+            cd infra
+            if [ ! -f .env ]; then
+              cp .env.production.example .env
+            fi
+            echo "$YC_SA_JSON_CREDENTIALS" | docker login -u json_key --password-stdin cr.yandex
+            export YC_REGISTRY_ID
+            docker compose -f docker-compose.production.yml pull backend
+            docker compose -f docker-compose.production.yml up -d --build
+            docker compose -f docker-compose.production.yml ps
