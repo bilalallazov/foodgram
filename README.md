@@ -1,4 +1,31 @@
-Находясь в папке infra, выполните команду docker-compose up. При выполнении этой команды контейнер frontend, описанный в docker-compose.yml, подготовит файлы, необходимые для работы фронтенд-приложения, а затем прекратит свою работу.
+# Foodgram
 
-По адресу http://localhost изучите фронтенд веб-приложения, а по адресу http://localhost/api/docs/ — спецификацию API.
+Сервис публикации рецептов.
 
+## Локальный запуск
+
+```bash
+cd infra
+cp .env.example .env
+docker compose up --build
+```
+
+Приложение: http://localhost  
+API: http://localhost/api/docs/  
+Админка: http://localhost/admin/
+
+## Данные для ревью
+
+Файл `tests.yml` в корне проекта. Перед сдачей укажите реальное имя ВМ в `vm_name`.
+
+Учётные данные администратора по умолчанию:
+
+- login: `admin@foodgram.ru`
+- password: `admin123`
+
+## Стек
+
+- Django, DRF
+- PostgreSQL
+- Docker, nginx, gunicorn
+- React (frontend)
