@@ -61,12 +61,16 @@ jobs:
             set -e
             COMPOSE="docker compose"
             command -v docker-compose >/dev/null 2>&1 && COMPOSE="docker-compose"
-            test -f /tmp/foodgram.tar.gz
+            ARCHIVE="/tmp/foodgram.tar.gz"
+            if [ ! -f "$ARCHIVE" ]; then
+              ARCHIVE="/tmp/foodgram.tar.gz/foodgram.tar.gz"
+            fi
+            test -f "$ARCHIVE"
             mkdir -p "$HOME/foodgram"
             if [ -f "$HOME/foodgram/infra/.env" ]; then
               cp "$HOME/foodgram/infra/.env" /tmp/foodgram.env.bak
             fi
-            tar xzf /tmp/foodgram.tar.gz -C "$HOME/foodgram"
+            tar xzf "$ARCHIVE" -C "$HOME/foodgram"
             if [ -f /tmp/foodgram.env.bak ]; then
               cp /tmp/foodgram.env.bak "$HOME/foodgram/infra/.env"
             elif [ ! -f "$HOME/foodgram/infra/.env" ]; then
