@@ -14,6 +14,8 @@ IMAGE_BYTES = base64.b64decode(
     'P8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
 )
 
+RECIPE_COUNT = 7
+
 
 class Command(BaseCommand):
     help = 'Load test users and recipes'
@@ -43,32 +45,45 @@ class Command(BaseCommand):
                     first_name=first_name,
                     last_name=last_name,
                 )
-        tags = list(Tag.objects.all()[:2])
+        tags = list(Tag.objects.all())
         ingredients = list(Ingredient.objects.all()[:5])
-        if not tags or len(ingredients) < 2:
+        if len(tags) < 3 or len(ingredients) < 2:
             self.stdout.write(
                 self.style.WARNING(
                     'Run load_ingredients and create_tags first.'
                 )
             )
             return
-        chefs = User.objects.filter(username__in=('chef1', 'chef2'))
-        for index, chef in enumerate(chefs):
-            if Recipe.objects.filter(author=chef).exists():
-                continue
+        authors = list(
+            User.objects.filter(
+                username__in=('admin', 'chef1', 'chef2', 'user1')
+            )
+        )
+        if not authors:
+            return
+        existing_count = Recipe.objects.count()
+        if existing_count >= RECIPE_COUNT:
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f'Test data already loaded ({existing_count} recipes).'
+                )
+            )
+            return
+        for index in range(existing_count, RECIPE_COUNT):
+            author = authors[index % len(authors)]
             recipe = Recipe(
-                author=chef,
+                author=author,
                 name=f'Тестовый рецепт {index + 1}',
                 text='Описание тестового рецепта.',
-                cooking_time=30 + index * 10,
+                cooking_time=30 + index * 5,
             )
             recipe.image.save(
-                f'recipe_{chef.username}.png',
+                f'recipe_{index + 1}.png',
                 ContentFile(IMAGE_BYTES),
                 save=False,
             )
             recipe.save()
-            recipe.tags.set(tags)
+            recipe.tags.set([tags[index % len(tags)]])
             for ingredient in ingredients[:3]:
                 RecipeIngredient.objects.create(
                     recipe=recipe,
@@ -76,5 +91,7 @@ class Command(BaseCommand):
                     amount=100 + index * 10,
                 )
         self.stdout.write(
-            self.style.SUCCESS('Test data loaded successfully.')
+            self.style.SUCCESS(
+                f'Test data loaded: {Recipe.objects.count()} recipes.'
+            )
         )

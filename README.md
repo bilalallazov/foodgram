@@ -16,10 +16,10 @@
 
 | Workflow | Назначение |
 |----------|------------|
-| Foodgram CI | Сборка и push образа в Yandex Container Registry |
-| Foodgram Deploy | Деплой на ВМ по SSH |
+| Foodgram CI | Проверка сборки Docker-образов |
+| Foodgram Deploy | Деплой на ВМ по SSH (`docker compose up --build`) |
 
-Секреты: `docs/GITHUB_SECRETS.md`.
+Секреты (3 шт., без Yandex Registry): `docs/GITHUB_SECRETS.md`.
 
 ## Локальный запуск
 
@@ -40,7 +40,7 @@ IP: `81.26.183.233`
 cd infra
 cp .env.production.example .env
 nano .env
-bash deploy.sh
+docker compose up -d --build
 ```
 
 ## Админка

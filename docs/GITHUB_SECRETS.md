@@ -1,38 +1,20 @@
-# Все секреты GitHub Actions
+# Секреты GitHub Actions (без Yandex Container Registry)
 
 Settings → Secrets and variables → Actions → New repository secret
 
-## Для сборки образа (workflow Foodgram CI)
-
-| Name | Значение |
-|------|----------|
-| `YC_REGISTRY_ID` | ID Container Registry (`crp...`) |
-| `YC_SA_JSON_CREDENTIALS` | JSON ключ сервисного аккаунта |
-
-## Для деплоя на ВМ (workflow Foodgram Deploy)
+Для деплоя достаточно **трёх** секретов:
 
 | Name | Значение |
 |------|----------|
 | `HOST` | `81.26.183.233` |
-| `USER` | `yc-user` (или `ubuntu` — как в консоли Yandex) |
-| `SSH_PRIVATE_KEY` | Приватный SSH-ключ (весь блок OPENSSH) |
+| `USER` | `ubuntu` |
+| `SSH_PRIVATE_KEY` | Приватный SSH-ключ ВМ (блок OPENSSH) |
 
-Те же `YC_REGISTRY_ID` и `YC_SA_JSON_CREDENTIALS` используются при деплое.
+Секреты `YC_REGISTRY_ID` и `YC_SA_JSON_CREDENTIALS` **не нужны**.
 
-## Итого: 5 секретов
+Образ backend собирается на ВМ: `docker compose up -d --build`.
 
-1. YC_REGISTRY_ID
-2. YC_SA_JSON_CREDENTIALS
-3. HOST
-4. USER
-5. SSH_PRIVATE_KEY
+После push в `main`:
 
-## tests.yml (не секрет, файл в репозитории)
-
-```yaml
-login: admin@foodgram.ru
-password: admin123
-vm_name: r-backend-vm-1670829377
-```
-
-Пароль совпадает с `ADMIN_PASSWORD` в `.env` на сервере.
+1. **Foodgram CI** — проверка сборки Dockerfile
+2. **Foodgram Deploy** — деплой по SSH

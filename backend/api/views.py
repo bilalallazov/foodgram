@@ -31,6 +31,7 @@ from recipes.models import (
     Recipe,
     RecipeIngredient,
     ShoppingCart,
+    ShortLink,
     Subscription,
     Tag,
 )
@@ -191,7 +192,11 @@ class RecipeViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=('get',))
     def get_link(self, request, pk=None):
         recipe = get_object_or_404(Recipe, pk=pk)
-        short_link = request.build_absolute_uri(f'/recipes/{recipe.id}/')
+        link, _ = ShortLink.objects.get_or_create(
+            recipe=recipe,
+            defaults={'code': ShortLink.generate_unique_code()},
+        )
+        short_link = request.build_absolute_uri(f'/s/{link.code}/')
         return Response({'short-link': short_link})
 
     @action(

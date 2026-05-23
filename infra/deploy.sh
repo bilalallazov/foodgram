@@ -8,17 +8,11 @@ if [ ! -f .env ]; then
     exit 1
 fi
 
-set -a
-source .env
-set +a
-
-if [ -z "$YC_SA_JSON_CREDENTIALS" ]; then
-    echo "Выполните: export YC_SA_JSON_CREDENTIALS=\"\$(cat путь/к/authorized_key.json)\""
-    exit 1
+docker compose -f docker-compose.yml down --remove-orphans || true
+docker compose -f docker-compose.yml up -d --build
+sleep 20
+if [ -f ../frontend/build/build/index.html ]; then
+    cp -r ../frontend/build/build/. ../frontend/build/
 fi
-
-echo "$YC_SA_JSON_CREDENTIALS" | docker login -u json_key --password-stdin cr.yandex
-
-docker compose -f docker-compose.production.yml pull backend
-docker compose -f docker-compose.production.yml up -d --build
-docker compose -f docker-compose.production.yml ps
+docker compose -f docker-compose.yml restart nginx
+docker compose -f docker-compose.yml ps

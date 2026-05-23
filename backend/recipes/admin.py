@@ -6,6 +6,7 @@ from recipes.models import (
     Recipe,
     RecipeIngredient,
     ShoppingCart,
+    ShortLink,
     Subscription,
     Tag,
 )
@@ -40,6 +41,12 @@ class IngredientAdmin(admin.ModelAdmin):
 class TagAdmin(admin.ModelAdmin):
     list_display = ('name', 'slug')
     prepopulated_fields = {'slug': ('name',)}
+
+
+@admin.register(ShortLink)
+class ShortLinkAdmin(admin.ModelAdmin):
+    list_display = ('code', 'recipe')
+    search_fields = ('code', 'recipe__name')
 
 
 admin.site.register(RecipeIngredient)

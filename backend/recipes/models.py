@@ -1,3 +1,6 @@
+import secrets
+import string
+
 from django.core.validators import MinValueValidator
 from django.db import models
 
@@ -58,6 +61,30 @@ class Recipe(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class ShortLink(models.Model):
+    recipe = models.OneToOneField(
+        Recipe,
+        on_delete=models.CASCADE,
+        related_name='short_link',
+    )
+    code = models.SlugField(max_length=16, unique=True)
+
+    class Meta:
+        verbose_name = 'short link'
+        verbose_name_plural = 'short links'
+
+    def __str__(self):
+        return f'/s/{self.code}/'
+
+    @classmethod
+    def generate_unique_code(cls):
+        alphabet = string.ascii_letters + string.digits
+        while True:
+            code = ''.join(secrets.choice(alphabet) for _ in range(6))
+            if not cls.objects.filter(code=code).exists():
+                return code
 
 
 class RecipeIngredient(models.Model):
