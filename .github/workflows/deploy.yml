@@ -13,6 +13,9 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    concurrency:
+      group: foodgram-deploy-production
+      cancel-in-progress: true
     if: >
       github.event_name == 'workflow_dispatch' ||
       github.event.workflow_run.conclusion == 'success'
@@ -90,11 +93,12 @@ jobs:
             cd "$HOME/foodgram/infra"
             sed -i "s/ALLOWED_HOSTS=.*/ALLOWED_HOSTS=${{ secrets.HOST }},127.0.0.1,localhost,backend/" .env
 
-            docker builder prune -af || true
-            $COMPOSE -f docker-compose.yml down --remove-orphans || true
-            docker ps -aq --filter name=foodgram | xargs -r docker rm -f || true
-            $COMPOSE -f docker-compose.yml build backend frontend
-            $COMPOSE -f docker-compose.yml up -d --force-recreate
+            $COMPOSE -f docker-compose.yml down --remove-orphans --timeout 30 || true
+            for name in foodgram-db foodgram-backend foodgram-front foodgram-proxy; do
+              docker rm -f "$name" 2>/dev/null || true
+            done
+            docker ps -a --format '{{.Names}}' | grep -E 'foodgram' | xargs -r docker rm -f || true
+            $COMPOSE -f docker-compose.yml up -d --build --force-recreate --remove-orphans
             sleep 15
 
             docker run --rm -v "$HOME/foodgram/frontend/build:/out" alpine \
