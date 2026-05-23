@@ -59,10 +59,11 @@ jobs:
           script_stop: true
           script: |
             set -e
+            if ! docker compose version >/dev/null 2>&1; then
+              echo "Install Docker Compose v2 (docker compose plugin)"
+              exit 1
+            fi
             COMPOSE="docker compose"
-            command -v docker-compose >/dev/null 2>&1 && COMPOSE="docker-compose"
-            export DOCKER_BUILDKIT=0
-            export COMPOSE_DOCKER_CLI_BUILD=0
 
             for ARCHIVE in /tmp/foodgram_deploy.tar.gz /tmp/foodgram.tar.gz /tmp/foodgram.tar.gz/foodgram.tar.gz; do
               if [ -f "$ARCHIVE" ]; then
@@ -91,14 +92,16 @@ jobs:
 
             docker builder prune -af || true
             $COMPOSE -f docker-compose.yml down --remove-orphans || true
-            $COMPOSE -f docker-compose.yml build backend
-            $COMPOSE -f docker-compose.yml build frontend
-            $COMPOSE -f docker-compose.yml up -d
+            docker rm -f foodgram-front 2>/dev/null || true
+            $COMPOSE -f docker-compose.yml build backend frontend
+            $COMPOSE -f docker-compose.yml up -d --force-recreate
             sleep 15
 
             docker run --rm -v "$HOME/foodgram/frontend/build:/out" alpine \
               sh -c 'rm -rf /out/* /out/.[!.]* 2>/dev/null || true'
             docker run --rm -v "$HOME/foodgram/frontend/build:/out" infra-frontend \
+              sh -c 'cp -r /app/build/. /out/' || \
+            docker run --rm -v "$HOME/foodgram/frontend/build:/out" infra_frontend \
               sh -c 'cp -r /app/build/. /out/'
 
             $COMPOSE -f docker-compose.yml restart nginx
