@@ -46,8 +46,9 @@ jobs:
           username: ${{ secrets.USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           source: foodgram.tar.gz
-          target: /tmp
+          target: /tmp/foodgram_deploy.tar.gz
           overwrite: true
+          strip_components: 0
 
       - name: Deploy on server
         uses: appleboy/ssh-action@v1.2.0
@@ -61,11 +62,16 @@ jobs:
             set -e
             COMPOSE="docker compose"
             command -v docker-compose >/dev/null 2>&1 && COMPOSE="docker-compose"
-            ARCHIVE="/tmp/foodgram.tar.gz"
-            if [ ! -f "$ARCHIVE" ]; then
-              ARCHIVE="/tmp/foodgram.tar.gz/foodgram.tar.gz"
-            fi
-            test -f "$ARCHIVE"
+            export DOCKER_BUILDKIT=0
+            export COMPOSE_DOCKER_CLI_BUILD=0
+
+            for ARCHIVE in /tmp/foodgram_deploy.tar.gz /tmp/foodgram.tar.gz /tmp/foodgram.tar.gz/foodgram.tar.gz; do
+              if [ -f "$ARCHIVE" ]; then
+                break
+              fi
+            done
+            test -f "$ARCHIVE" || (echo "Archive not found in /tmp" && ls -la /tmp && exit 1)
+
             mkdir -p "$HOME/foodgram"
             if [ -f "$HOME/foodgram/infra/.env" ]; then
               cp "$HOME/foodgram/infra/.env" /tmp/foodgram.env.bak
@@ -74,7 +80,7 @@ jobs:
             if [ -f /tmp/foodgram.env.bak ]; then
               cp /tmp/foodgram.env.bak "$HOME/foodgram/infra/.env"
             elif [ ! -f "$HOME/foodgram/infra/.env" ]; then
-              cp "$HOME/foodgram/infra/.env.production.example "$HOME/foodgram/infra/.env"
+              cp "$HOME/foodgram/infra/.env.production.example" "$HOME/foodgram/infra/.env"
             fi
             sed -i 's/\r$//' "$HOME/foodgram/backend/entrypoint.sh"
             chmod +x "$HOME/foodgram/backend/entrypoint.sh"
@@ -83,11 +89,18 @@ jobs:
               cp "$HOME/foodgram/data/ingredients.csv" "$HOME/foodgram/backend/data/" 2>/dev/null || true
             cd "$HOME/foodgram/infra"
             sed -i "s/ALLOWED_HOSTS=.*/ALLOWED_HOSTS=${{ secrets.HOST }},127.0.0.1,localhost,backend/" .env
+
+            docker builder prune -af || true
             $COMPOSE -f docker-compose.yml down --remove-orphans || true
-            $COMPOSE -f docker-compose.yml up -d --build
-            sleep 25
-            if [ -f ../frontend/build/build/index.html ]; then
-              cp -r ../frontend/build/build/. ../frontend/build/
-            fi
+            $COMPOSE -f docker-compose.yml build backend
+            $COMPOSE -f docker-compose.yml build frontend
+            $COMPOSE -f docker-compose.yml up -d
+            sleep 15
+
+            docker run --rm -v "$HOME/foodgram/frontend/build:/out" alpine \
+              sh -c 'rm -rf /out/* /out/.[!.]* 2>/dev/null || true'
+            docker run --rm -v "$HOME/foodgram/frontend/build:/out" infra-frontend \
+              sh -c 'cp -r /app/build/. /out/'
+
             $COMPOSE -f docker-compose.yml restart nginx
             $COMPOSE -f docker-compose.yml ps
