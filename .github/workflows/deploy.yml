@@ -17,13 +17,31 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       github.event.workflow_run.conclusion == 'success'
     steps:
+      - uses: actions/checkout@v4
+
       - name: Check SSH secrets
         run: |
           test -n "${{ secrets.HOST }}" || (echo "::error::Добавьте секрет HOST (IP ВМ)" && exit 1)
           test -n "${{ secrets.USER }}" || (echo "::error::Добавьте секрет USER (ubuntu)" && exit 1)
           test -n "${{ secrets.SSH_PRIVATE_KEY }}" || (echo "::error::Добавьте секрет SSH_PRIVATE_KEY" && exit 1)
 
-      - name: Deploy to server
+      - name: Create deploy archive
+        run: |
+          tar --exclude='.git' \
+              --exclude='frontend/node_modules' \
+              --exclude='infra/foodgram' \
+              -czf foodgram.tar.gz .
+
+      - name: Upload archive to server
+        uses: appleboy/scp-action@v1.0.0
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: foodgram.tar.gz
+          target: /tmp
+
+      - name: Deploy on server
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.HOST }}
@@ -34,19 +52,22 @@ jobs:
             set -e
             COMPOSE="docker compose"
             command -v docker-compose >/dev/null 2>&1 && COMPOSE="docker-compose"
-            if [ ! -d "$HOME/foodgram" ]; then
-              git clone https://github.com/bilalallazov/foodgram.git "$HOME/foodgram"
+            mkdir -p "$HOME/foodgram"
+            if [ -f "$HOME/foodgram/infra/.env" ]; then
+              cp "$HOME/foodgram/infra/.env" /tmp/foodgram.env.bak
             fi
-            cd "$HOME/foodgram"
-            git pull origin main
-            mkdir -p backend/data
-            test -f backend/data/ingredients.csv || cp data/ingredients.csv backend/data/ 2>/dev/null || true
-            sed -i 's/\r$//' backend/entrypoint.sh
-            chmod +x backend/entrypoint.sh
-            cd infra
-            if [ ! -f .env ]; then
-              cp .env.production.example .env
+            tar xzf /tmp/foodgram.tar.gz -C "$HOME/foodgram"
+            if [ -f /tmp/foodgram.env.bak ]; then
+              cp /tmp/foodgram.env.bak "$HOME/foodgram/infra/.env"
+            elif [ ! -f "$HOME/foodgram/infra/.env" ]; then
+              cp "$HOME/foodgram/infra/.env.production.example "$HOME/foodgram/infra/.env"
             fi
+            sed -i 's/\r$//' "$HOME/foodgram/backend/entrypoint.sh"
+            chmod +x "$HOME/foodgram/backend/entrypoint.sh"
+            mkdir -p "$HOME/foodgram/backend/data"
+            test -f "$HOME/foodgram/backend/data/ingredients.csv" || \
+              cp "$HOME/foodgram/data/ingredients.csv" "$HOME/foodgram/backend/data/" 2>/dev/null || true
+            cd "$HOME/foodgram/infra"
             sed -i "s/ALLOWED_HOSTS=.*/ALLOWED_HOSTS=${{ secrets.HOST }},127.0.0.1,localhost,backend/" .env
             $COMPOSE -f docker-compose.yml down --remove-orphans || true
             $COMPOSE -f docker-compose.yml up -d --build
