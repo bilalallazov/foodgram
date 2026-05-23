@@ -27,10 +27,12 @@ jobs:
 
       - name: Create deploy archive
         run: |
-          tar --exclude='.git' \
-              --exclude='frontend/node_modules' \
-              --exclude='infra/foodgram' \
-              -czf foodgram.tar.gz .
+          tar -czf /tmp/foodgram.tar.gz \
+            --exclude='.git' \
+            --exclude='frontend/node_modules' \
+            --exclude='infra/foodgram' \
+            -C "${{ github.workspace }}" .
+          if [ $? -gt 1 ]; then exit $?; fi
 
       - name: Upload archive to server
         uses: appleboy/scp-action@v1.0.0
@@ -38,7 +40,7 @@ jobs:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: foodgram.tar.gz
+          source: /tmp/foodgram.tar.gz
           target: /tmp
 
       - name: Deploy on server
