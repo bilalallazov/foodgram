@@ -18,6 +18,8 @@ jobs:
       github.event.workflow_run.conclusion == 'success'
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Check SSH secrets
         run: |
@@ -26,13 +28,7 @@ jobs:
           test -n "${{ secrets.SSH_PRIVATE_KEY }}" || (echo "::error::Добавьте секрет SSH_PRIVATE_KEY" && exit 1)
 
       - name: Create deploy archive
-        run: |
-          tar -czf /tmp/foodgram.tar.gz \
-            --exclude='.git' \
-            --exclude='frontend/node_modules' \
-            --exclude='infra/foodgram' \
-            -C "${{ github.workspace }}" .
-          if [ $? -gt 1 ]; then exit $?; fi
+        run: git archive --format=tar.gz --output=foodgram.tar.gz HEAD
 
       - name: Upload archive to server
         uses: appleboy/scp-action@v1.0.0
@@ -40,7 +36,7 @@ jobs:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: /tmp/foodgram.tar.gz
+          source: foodgram.tar.gz
           target: /tmp
 
       - name: Deploy on server
