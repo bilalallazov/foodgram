@@ -18,8 +18,6 @@ jobs:
       github.event.workflow_run.conclusion == 'success'
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Check SSH secrets
         run: |
@@ -28,7 +26,18 @@ jobs:
           test -n "${{ secrets.SSH_PRIVATE_KEY }}" || (echo "::error::Добавьте секрет SSH_PRIVATE_KEY" && exit 1)
 
       - name: Create deploy archive
-        run: git archive --format=tar.gz --output=foodgram.tar.gz HEAD
+        shell: bash
+        run: |
+          set -e
+          BUNDLE="${RUNNER_TEMP}/foodgram-bundle"
+          ARCHIVE="${GITHUB_WORKSPACE}/foodgram.tar.gz"
+          rm -rf "$BUNDLE" "$ARCHIVE"
+          mkdir -p "$BUNDLE"
+          cp -r backend frontend infra docs data postman_collection "$BUNDLE/"
+          cp tests.yml setup.cfg README.md LICENSE "$BUNDLE/" 2>/dev/null || true
+          cp .gitignore "$BUNDLE/" 2>/dev/null || true
+          tar -czf "$ARCHIVE" -C "$BUNDLE" .
+          ls -lh "$ARCHIVE"
 
       - name: Upload archive to server
         uses: appleboy/scp-action@v1.0.0
@@ -38,6 +47,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           source: foodgram.tar.gz
           target: /tmp
+          overwrite: true
 
       - name: Deploy on server
         uses: appleboy/ssh-action@v1.2.0
@@ -45,11 +55,13 @@ jobs:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          command_timeout: 30m
           script_stop: true
           script: |
             set -e
             COMPOSE="docker compose"
             command -v docker-compose >/dev/null 2>&1 && COMPOSE="docker-compose"
+            test -f /tmp/foodgram.tar.gz
             mkdir -p "$HOME/foodgram"
             if [ -f "$HOME/foodgram/infra/.env" ]; then
               cp "$HOME/foodgram/infra/.env" /tmp/foodgram.env.bak
