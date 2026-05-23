@@ -48,7 +48,6 @@ jobs:
           source: foodgram.tar.gz
           target: /tmp/foodgram_deploy.tar.gz
           overwrite: true
-          strip_components: 0
 
       - name: Deploy on server
         uses: appleboy/ssh-action@v1.2.0
