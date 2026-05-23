@@ -92,7 +92,7 @@ jobs:
 
             docker builder prune -af || true
             $COMPOSE -f docker-compose.yml down --remove-orphans || true
-            docker rm -f foodgram-front 2>/dev/null || true
+            docker ps -aq --filter name=foodgram | xargs -r docker rm -f || true
             $COMPOSE -f docker-compose.yml build backend frontend
             $COMPOSE -f docker-compose.yml up -d --force-recreate
             sleep 15
