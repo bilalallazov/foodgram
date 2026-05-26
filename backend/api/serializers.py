@@ -1,7 +1,11 @@
 from django.contrib.auth import authenticate
 from django.db import transaction
+
 from drf_extra_fields.fields import Base64ImageField
 from rest_framework import serializers
+from rest_framework.exceptions import NotFound
+from rest_framework.relations import PrimaryKeyRelatedField
+
 from recipes.models import (
     Favorite,
     Ingredient,
@@ -12,6 +16,21 @@ from recipes.models import (
     Tag,
 )
 from users.models import User
+
+
+class NotFoundPrimaryKeyRelatedField(PrimaryKeyRelatedField):
+    default_error_messages = {
+        **PrimaryKeyRelatedField.default_error_messages,
+        'does_not_exist': 'Ингредиент не найден.',
+    }
+
+    def to_internal_value(self, data):
+        try:
+            return super().to_internal_value(data)
+        except serializers.ValidationError as exc:
+            if 'does_not_exist' in exc.get_codes():
+                raise NotFound(self.error_messages['does_not_exist'])
+            raise
 
 
 class AuthTokenSerializer(serializers.Serializer):
@@ -132,7 +151,10 @@ class SetAvatarSerializer(serializers.ModelSerializer):
 
 
 class RecipeIngredientWriteSerializer(serializers.Serializer):
-    id = serializers.IntegerField()
+    id = NotFoundPrimaryKeyRelatedField(
+        queryset=Ingredient.objects.all(),
+        source='ingredient',
+    )
     amount = serializers.IntegerField(min_value=1)
 
 
@@ -216,17 +238,10 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
         )
 
     def validate_ingredients(self, value):
-        ingredient_ids = [item['id'] for item in value]
+        ingredient_ids = [item['ingredient'].id for item in value]
         if len(ingredient_ids) != len(set(ingredient_ids)):
             raise serializers.ValidationError(
                 'Ingredients must be unique.'
-            )
-        existing = Ingredient.objects.filter(
-            id__in=ingredient_ids,
-        ).count()
-        if existing != len(set(ingredient_ids)):
-            raise serializers.ValidationError(
-                'One or more ingredients do not exist.'
             )
         return value
 
@@ -244,9 +259,7 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         ingredients_data = validated_data.pop('ingredients', None)
         tags = validated_data.pop('tags', None)
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-        instance.save()
+        instance = super().update(instance, validated_data)
         if tags is not None:
             instance.tags.set(tags)
         if ingredients_data is not None:
@@ -258,12 +271,15 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
         recipe_ingredients = [
             RecipeIngredient(
                 recipe=recipe,
-                ingredient_id=item['id'],
+                ingredient=item['ingredient'],
                 amount=item['amount'],
             )
             for item in ingredients_data
         ]
         RecipeIngredient.objects.bulk_create(recipe_ingredients)
+
+    def to_representation(self, instance):
+        return RecipeSerializer(instance, context=self.context).data
 
 
 class UserWithRecipesSerializer(UserSerializer):
