@@ -12,7 +12,7 @@ Settings → Secrets and variables → Actions → New repository secret
 
 Секреты `YC_REGISTRY_ID` и `YC_SA_JSON_CREDENTIALS` **не нужны**.
 
-Образ backend собирается на ВМ: `docker compose up -d --build`.
+Образы собираются на ВМ: `docker-compose up -d --build` (или `docker compose`).
 
 После push в `main`:
 

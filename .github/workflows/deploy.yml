@@ -62,11 +62,14 @@ jobs:
           script_stop: true
           script: |
             set -e
-            if ! docker compose version >/dev/null 2>&1; then
-              echo "Install Docker Compose v2 (docker compose plugin)"
+            if docker compose version >/dev/null 2>&1; then
+              COMPOSE="docker compose"
+            elif docker-compose version >/dev/null 2>&1; then
+              COMPOSE="docker-compose"
+            else
+              echo "Install Docker Compose (docker compose or docker-compose)"
               exit 1
             fi
-            COMPOSE="docker compose"
 
             for ARCHIVE in /tmp/foodgram_deploy.tar.gz /tmp/foodgram.tar.gz /tmp/foodgram.tar.gz/foodgram.tar.gz; do
               if [ -f "$ARCHIVE" ]; then
