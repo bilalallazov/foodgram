@@ -10,6 +10,9 @@ on:
       - master
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -23,10 +26,26 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Check SSH secrets
+        shell: bash
         run: |
-          test -n "${{ secrets.HOST }}" || (echo "::error::Добавьте секрет HOST (IP ВМ)" && exit 1)
+          set -e
+          test -n "${{ secrets.HOST }}" || (echo "::error::Добавьте секрет HOST (только IP, без http://)" && exit 1)
           test -n "${{ secrets.USER }}" || (echo "::error::Добавьте секрет USER (ubuntu)" && exit 1)
           test -n "${{ secrets.SSH_PRIVATE_KEY }}" || (echo "::error::Добавьте секрет SSH_PRIVATE_KEY" && exit 1)
+          case "${{ secrets.HOST }}" in
+            *://*) echo "::error::HOST должен быть только IP: 81.26.183.233" && exit 1 ;;
+          esac
+
+      - name: Configure SSH key
+        shell: bash
+        run: |
+          set -e
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          sed -i 's/\r$//' ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
 
       - name: Create deploy archive
         shell: bash
@@ -36,80 +55,80 @@ jobs:
           ARCHIVE="${GITHUB_WORKSPACE}/foodgram.tar.gz"
           rm -rf "$BUNDLE" "$ARCHIVE"
           mkdir -p "$BUNDLE"
-          cp -r backend frontend infra docs data postman_collection "$BUNDLE/"
-          cp tests.yml setup.cfg README.md LICENSE "$BUNDLE/" 2>/dev/null || true
-          cp .gitignore "$BUNDLE/" 2>/dev/null || true
+          for dir in backend frontend infra docs data postman_collection; do
+            if [ -d "$dir" ]; then
+              cp -r "$dir" "$BUNDLE/"
+            fi
+          done
+          for file in tests.yml setup.cfg README.md LICENSE .gitignore; do
+            [ -f "$file" ] && cp "$file" "$BUNDLE/"
+          done
           tar -czf "$ARCHIVE" -C "$BUNDLE" .
           ls -lh "$ARCHIVE"
 
       - name: Upload archive to server
-        uses: appleboy/scp-action@v1.0.0
-        with:
-          host: ${{ secrets.HOST }}
-          username: ${{ secrets.USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: foodgram.tar.gz
-          target: /tmp/foodgram_deploy.tar.gz
-          overwrite: true
+        shell: bash
+        run: |
+          set -e
+          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            "${GITHUB_WORKSPACE}/foodgram.tar.gz" \
+            "${{ secrets.USER }}@${{ secrets.HOST }}:/tmp/foodgram.tar.gz"
 
       - name: Deploy on server
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.HOST }}
-          username: ${{ secrets.USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          command_timeout: 30m
-          script_stop: true
-          script: |
-            set -e
-            if docker compose version >/dev/null 2>&1; then
-              COMPOSE="docker compose"
-            elif docker-compose version >/dev/null 2>&1; then
-              COMPOSE="docker-compose"
-            else
-              echo "Install Docker Compose (docker compose or docker-compose)"
-              exit 1
-            fi
+        shell: bash
+        env:
+          DEPLOY_HOST: ${{ secrets.HOST }}
+        run: |
+          set -e
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            "${{ secrets.USER }}@${{ secrets.HOST }}" bash -s <<EOF
+          set -e
+          if docker compose version >/dev/null 2>&1; then
+            COMPOSE="docker compose"
+          elif docker-compose version >/dev/null 2>&1; then
+            COMPOSE="docker-compose"
+          else
+            echo "Install Docker Compose"
+            exit 1
+          fi
 
-            for ARCHIVE in /tmp/foodgram_deploy.tar.gz /tmp/foodgram.tar.gz /tmp/foodgram.tar.gz/foodgram.tar.gz; do
-              if [ -f "$ARCHIVE" ]; then
-                break
-              fi
-            done
-            test -f "$ARCHIVE" || (echo "Archive not found in /tmp" && ls -la /tmp && exit 1)
+          ARCHIVE="/tmp/foodgram.tar.gz"
+          test -f "\$ARCHIVE" || (echo "Archive not found" && ls -la /tmp && exit 1)
 
-            mkdir -p "$HOME/foodgram"
-            if [ -f "$HOME/foodgram/infra/.env" ]; then
-              cp "$HOME/foodgram/infra/.env" /tmp/foodgram.env.bak
-            fi
-            tar xzf "$ARCHIVE" -C "$HOME/foodgram"
-            if [ -f /tmp/foodgram.env.bak ]; then
-              cp /tmp/foodgram.env.bak "$HOME/foodgram/infra/.env"
-            elif [ ! -f "$HOME/foodgram/infra/.env" ]; then
-              cp "$HOME/foodgram/infra/.env.production.example" "$HOME/foodgram/infra/.env"
-            fi
-            sed -i 's/\r$//' "$HOME/foodgram/backend/entrypoint.sh"
-            chmod +x "$HOME/foodgram/backend/entrypoint.sh"
-            mkdir -p "$HOME/foodgram/backend/data"
-            test -f "$HOME/foodgram/backend/data/ingredients.csv" || \
-              cp "$HOME/foodgram/data/ingredients.csv" "$HOME/foodgram/backend/data/" 2>/dev/null || true
-            cd "$HOME/foodgram/infra"
-            sed -i "s/ALLOWED_HOSTS=.*/ALLOWED_HOSTS=${{ secrets.HOST }},127.0.0.1,localhost,backend/" .env
+          mkdir -p "\$HOME/foodgram"
+          if [ -f "\$HOME/foodgram/infra/.env" ]; then
+            cp "\$HOME/foodgram/infra/.env" /tmp/foodgram.env.bak
+          fi
+          tar xzf "\$ARCHIVE" -C "\$HOME/foodgram"
+          if [ -f /tmp/foodgram.env.bak ]; then
+            cp /tmp/foodgram.env.bak "\$HOME/foodgram/infra/.env"
+          elif [ ! -f "\$HOME/foodgram/infra/.env" ]; then
+            cp "\$HOME/foodgram/infra/.env.production.example" "\$HOME/foodgram/infra/.env"
+          fi
+          sed -i 's/\r$//' "\$HOME/foodgram/backend/entrypoint.sh"
+          chmod +x "\$HOME/foodgram/backend/entrypoint.sh"
+          mkdir -p "\$HOME/foodgram/backend/data"
+          test -f "\$HOME/foodgram/backend/data/ingredients.csv" || \
+            cp "\$HOME/foodgram/data/ingredients.csv" "\$HOME/foodgram/backend/data/" 2>/dev/null || true
+          cd "\$HOME/foodgram/infra"
+          sed -i "s/ALLOWED_HOSTS=.*/ALLOWED_HOSTS=${DEPLOY_HOST},127.0.0.1,localhost,backend/" .env
 
-            $COMPOSE -f docker-compose.yml down --remove-orphans --timeout 30 || true
-            for name in foodgram-db foodgram-backend foodgram-front foodgram-proxy; do
-              docker rm -f "$name" 2>/dev/null || true
-            done
-            docker ps -a --format '{{.Names}}' | grep -E 'foodgram' | xargs -r docker rm -f || true
-            $COMPOSE -f docker-compose.yml up -d --build --force-recreate --remove-orphans
-            sleep 15
+          \$COMPOSE -f docker-compose.yml down --remove-orphans || true
+          for name in foodgram-db foodgram-backend foodgram-front foodgram-proxy; do
+            docker rm -f "\$name" 2>/dev/null || true
+          done
+          \$COMPOSE -f docker-compose.yml up -d --build --force-recreate --remove-orphans
+          sleep 20
 
-            docker run --rm -v "$HOME/foodgram/frontend/build:/out" alpine \
-              sh -c 'rm -rf /out/* /out/.[!.]* 2>/dev/null || true'
-            docker run --rm -v "$HOME/foodgram/frontend/build:/out" infra-frontend \
-              sh -c 'cp -r /app/build/. /out/' || \
-            docker run --rm -v "$HOME/foodgram/frontend/build:/out" infra_frontend \
-              sh -c 'cp -r /app/build/. /out/'
+          if [ -f "\$HOME/foodgram/frontend/build/build/index.html" ]; then
+            cp -r "\$HOME/foodgram/frontend/build/build/." "\$HOME/foodgram/frontend/build/"
+          fi
+          docker run --rm -v "\$HOME/foodgram/frontend/build:/out" infra-frontend \
+            sh -c 'cp -r /app/build/. /out/' 2>/dev/null || \
+          docker run --rm -v "\$HOME/foodgram/frontend/build:/out" infra_frontend \
+            sh -c 'cp -r /app/build/. /out/' 2>/dev/null || true
 
-            $COMPOSE -f docker-compose.yml restart nginx
-            $COMPOSE -f docker-compose.yml ps
+          \$COMPOSE -f docker-compose.yml restart nginx || docker restart foodgram-proxy
+          \$COMPOSE -f docker-compose.yml ps
+          curl -sf -o /dev/null -w "api:%{http_code}\n" http://127.0.0.1/api/recipes/
+          EOF
