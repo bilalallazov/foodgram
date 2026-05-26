@@ -25,16 +25,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check SSH secrets
+      - name: Prepare connection variables
         shell: bash
         run: |
           set -e
-          test -n "${{ secrets.HOST }}" || (echo "::error::Добавьте секрет HOST (только IP, без http://)" && exit 1)
-          test -n "${{ secrets.USER }}" || (echo "::error::Добавьте секрет USER (ubuntu)" && exit 1)
-          test -n "${{ secrets.SSH_PRIVATE_KEY }}" || (echo "::error::Добавьте секрет SSH_PRIVATE_KEY" && exit 1)
-          case "${{ secrets.HOST }}" in
-            *://*) echo "::error::HOST должен быть только IP: 81.26.183.233" && exit 1 ;;
-          esac
+          HOST=$(printf '%s' "${{ secrets.HOST }}" | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+          USER=$(printf '%s' "${{ secrets.USER }}" | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+          HOST="${HOST#http://}"
+          HOST="${HOST#https://}"
+          HOST="${HOST%%/*}"
+          if [ -z "$HOST" ] || [ -z "$USER" ]; then
+            echo "::error::Заполните секреты HOST и USER"
+            exit 1
+          fi
+          if ! printf '%s' "$USER" | grep -Eq '^[a-z_][a-z0-9_-]*$'; then
+            echo "::error::USER='$USER' — недопустимые символы. Укажите только: ubuntu"
+            exit 1
+          fi
+          test -n "${{ secrets.SSH_PRIVATE_KEY }}" || (echo "::error::Добавьте SSH_PRIVATE_KEY" && exit 1)
+          echo "DEPLOY_HOST=$HOST" >> "$GITHUB_ENV"
+          echo "DEPLOY_USER=$USER" >> "$GITHUB_ENV"
+          echo "Подключение: ${USER}@${HOST}"
 
       - name: Configure SSH key
         shell: bash
@@ -45,7 +56,7 @@ jobs:
           printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
           sed -i 's/\r$//' ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H "${{ secrets.HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
+          ssh-keyscan -H "${{ env.DEPLOY_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
 
       - name: Create deploy archive
         shell: bash
@@ -72,16 +83,14 @@ jobs:
           set -e
           scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
             "${GITHUB_WORKSPACE}/foodgram.tar.gz" \
-            "${{ secrets.USER }}@${{ secrets.HOST }}:/tmp/foodgram.tar.gz"
+            "${{ env.DEPLOY_USER }}@${{ env.DEPLOY_HOST }}:/tmp/foodgram.tar.gz"
 
       - name: Deploy on server
         shell: bash
-        env:
-          DEPLOY_HOST: ${{ secrets.HOST }}
         run: |
           set -e
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
-            "${{ secrets.USER }}@${{ secrets.HOST }}" bash -s <<EOF
+            "${{ env.DEPLOY_USER }}@${{ env.DEPLOY_HOST }}" bash -s <<EOF
           set -e
           if docker compose version >/dev/null 2>&1; then
             COMPOSE="docker compose"
@@ -111,7 +120,7 @@ jobs:
           test -f "\$HOME/foodgram/backend/data/ingredients.csv" || \
             cp "\$HOME/foodgram/data/ingredients.csv" "\$HOME/foodgram/backend/data/" 2>/dev/null || true
           cd "\$HOME/foodgram/infra"
-          sed -i "s/ALLOWED_HOSTS=.*/ALLOWED_HOSTS=${DEPLOY_HOST},127.0.0.1,localhost,backend/" .env
+          sed -i "s/ALLOWED_HOSTS=.*/ALLOWED_HOSTS=${{ env.DEPLOY_HOST }},127.0.0.1,localhost,backend/" .env
 
           \$COMPOSE -f docker-compose.yml down --remove-orphans || true
           for name in foodgram-db foodgram-backend foodgram-front foodgram-proxy; do

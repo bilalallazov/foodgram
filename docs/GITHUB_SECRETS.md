@@ -7,7 +7,7 @@ Settings → Secrets and variables → Actions → New repository secret
 | Name | Значение |
 |------|----------|
 | `HOST` | `81.26.183.233` |
-| `USER` | `ubuntu` |
+| `USER` | `ubuntu` (только это слово, без пробелов и переносов строк) |
 | `SSH_PRIVATE_KEY` | Приватный SSH-ключ ВМ (блок OPENSSH) |
 
 Секреты `YC_REGISTRY_ID` и `YC_SA_JSON_CREDENTIALS` **не нужны**.
