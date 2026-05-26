@@ -1,1 +1,1 @@
-
+"""Foodgram Django project package."""
