@@ -19,16 +19,15 @@ class RecipeIngredientInline(admin.TabularInline):
 
 @admin.register(Recipe)
 class RecipeAdmin(admin.ModelAdmin):
-    list_display = ('name', 'author', 'pub_date')
+    list_display = ('name', 'author', 'pub_date', 'favorite_count')
     search_fields = ('name', 'author__username')
     list_filter = ('tags',)
     readonly_fields = ('favorite_count',)
     inlines = (RecipeIngredientInline,)
 
+    @admin.display(description='В избранном')
     def favorite_count(self, obj):
         return obj.favorites.count()
-
-    favorite_count.short_description = 'favorites count'
 
 
 @admin.register(Ingredient)
@@ -49,7 +48,25 @@ class ShortLinkAdmin(admin.ModelAdmin):
     search_fields = ('code', 'recipe__name')
 
 
-admin.site.register(RecipeIngredient)
-admin.site.register(Favorite)
-admin.site.register(ShoppingCart)
-admin.site.register(Subscription)
+@admin.register(RecipeIngredient)
+class RecipeIngredientAdmin(admin.ModelAdmin):
+    list_display = ('recipe', 'ingredient', 'amount')
+    search_fields = ('recipe__name', 'ingredient__name')
+
+
+@admin.register(Favorite)
+class FavoriteAdmin(admin.ModelAdmin):
+    list_display = ('user', 'recipe')
+    search_fields = ('user__username', 'recipe__name')
+
+
+@admin.register(ShoppingCart)
+class ShoppingCartAdmin(admin.ModelAdmin):
+    list_display = ('user', 'recipe')
+    search_fields = ('user__username', 'recipe__name')
+
+
+@admin.register(Subscription)
+class SubscriptionAdmin(admin.ModelAdmin):
+    list_display = ('user', 'author')
+    search_fields = ('user__username', 'author__username')

@@ -4,12 +4,23 @@ import string
 from django.core.validators import MinValueValidator
 from django.db import models
 
+from recipes.constants import (
+    INGREDIENT_NAME_MAX_LENGTH,
+    INGREDIENT_UNIT_MAX_LENGTH,
+    MIN_COOKING_TIME,
+    MIN_INGREDIENT_AMOUNT,
+    RECIPE_NAME_MAX_LENGTH,
+    SHORT_LINK_CODE_LENGTH,
+    SHORT_LINK_CODE_MAX_LENGTH,
+    TAG_NAME_MAX_LENGTH,
+    TAG_SLUG_MAX_LENGTH,
+)
 from users.models import User
 
 
 class Tag(models.Model):
-    name = models.CharField(max_length=32, unique=True)
-    slug = models.SlugField(max_length=32, unique=True)
+    name = models.CharField(max_length=TAG_NAME_MAX_LENGTH, unique=True)
+    slug = models.SlugField(max_length=TAG_SLUG_MAX_LENGTH, unique=True)
 
     class Meta:
         ordering = ('name',)
@@ -21,8 +32,8 @@ class Tag(models.Model):
 
 
 class Ingredient(models.Model):
-    name = models.CharField(max_length=128)
-    measurement_unit = models.CharField(max_length=64)
+    name = models.CharField(max_length=INGREDIENT_NAME_MAX_LENGTH)
+    measurement_unit = models.CharField(max_length=INGREDIENT_UNIT_MAX_LENGTH)
 
     class Meta:
         ordering = ('name',)
@@ -44,14 +55,16 @@ class Recipe(models.Model):
         User,
         on_delete=models.CASCADE,
         related_name='recipes',
+        verbose_name='author',
     )
-    name = models.CharField(max_length=256)
+    name = models.CharField(max_length=RECIPE_NAME_MAX_LENGTH)
     image = models.ImageField(upload_to='recipes/images/')
     text = models.TextField()
     cooking_time = models.PositiveIntegerField(
-        validators=[MinValueValidator(1)],
+        validators=[MinValueValidator(MIN_COOKING_TIME)],
+        verbose_name='cooking time',
     )
-    pub_date = models.DateTimeField(auto_now_add=True)
+    pub_date = models.DateTimeField(auto_now_add=True, verbose_name='pub date')
     tags = models.ManyToManyField(Tag, related_name='recipes')
 
     class Meta:
@@ -68,8 +81,9 @@ class ShortLink(models.Model):
         Recipe,
         on_delete=models.CASCADE,
         related_name='short_link',
+        verbose_name='recipe',
     )
-    code = models.SlugField(max_length=16, unique=True)
+    code = models.SlugField(max_length=SHORT_LINK_CODE_MAX_LENGTH, unique=True)
 
     class Meta:
         verbose_name = 'short link'
@@ -82,7 +96,9 @@ class ShortLink(models.Model):
     def generate_unique_code(cls):
         alphabet = string.ascii_letters + string.digits
         while True:
-            code = ''.join(secrets.choice(alphabet) for _ in range(6))
+            code = ''.join(
+                secrets.choice(alphabet) for _ in range(SHORT_LINK_CODE_LENGTH)
+            )
             if not cls.objects.filter(code=code).exists():
                 return code
 
@@ -92,14 +108,17 @@ class RecipeIngredient(models.Model):
         Recipe,
         on_delete=models.CASCADE,
         related_name='recipe_ingredients',
+        verbose_name='recipe',
     )
     ingredient = models.ForeignKey(
         Ingredient,
         on_delete=models.CASCADE,
         related_name='recipe_ingredients',
+        verbose_name='ingredient',
     )
     amount = models.PositiveIntegerField(
-        validators=[MinValueValidator(1)],
+        validators=[MinValueValidator(MIN_INGREDIENT_AMOUNT)],
+        verbose_name='amount',
     )
 
     class Meta:
@@ -121,14 +140,18 @@ class Favorite(models.Model):
         User,
         on_delete=models.CASCADE,
         related_name='favorites',
+        verbose_name='user',
     )
     recipe = models.ForeignKey(
         Recipe,
         on_delete=models.CASCADE,
         related_name='favorites',
+        verbose_name='recipe',
     )
 
     class Meta:
+        verbose_name = 'favorite'
+        verbose_name_plural = 'favorites'
         constraints = [
             models.UniqueConstraint(
                 fields=('user', 'recipe'),
@@ -136,20 +159,27 @@ class Favorite(models.Model):
             ),
         ]
 
+    def __str__(self):
+        return f'{self.user} → {self.recipe}'
+
 
 class ShoppingCart(models.Model):
     user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
         related_name='shopping_cart',
+        verbose_name='user',
     )
     recipe = models.ForeignKey(
         Recipe,
         on_delete=models.CASCADE,
         related_name='shopping_cart',
+        verbose_name='recipe',
     )
 
     class Meta:
+        verbose_name = 'shopping cart item'
+        verbose_name_plural = 'shopping cart'
         constraints = [
             models.UniqueConstraint(
                 fields=('user', 'recipe'),
@@ -157,23 +187,33 @@ class ShoppingCart(models.Model):
             ),
         ]
 
+    def __str__(self):
+        return f'{self.user} → {self.recipe}'
+
 
 class Subscription(models.Model):
     user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
         related_name='subscriptions',
+        verbose_name='subscriber',
     )
     author = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
         related_name='subscribers',
+        verbose_name='author',
     )
 
     class Meta:
+        verbose_name = 'subscription'
+        verbose_name_plural = 'subscriptions'
         constraints = [
             models.UniqueConstraint(
                 fields=('user', 'author'),
                 name='unique_subscription',
             ),
         ]
+
+    def __str__(self):
+        return f'{self.user} → {self.author}'
