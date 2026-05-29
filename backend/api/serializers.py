@@ -3,9 +3,8 @@ from django.db import transaction
 
 from drf_extra_fields.fields import Base64ImageField
 from rest_framework import serializers
-from rest_framework.exceptions import NotFound
-from rest_framework.relations import PrimaryKeyRelatedField
 
+from api.fields import IngredientPrimaryKeyRelatedField
 from recipes.models import (
     Favorite,
     Ingredient,
@@ -16,21 +15,6 @@ from recipes.models import (
     Tag,
 )
 from users.models import User
-
-
-class NotFoundPrimaryKeyRelatedField(PrimaryKeyRelatedField):
-    default_error_messages = {
-        **PrimaryKeyRelatedField.default_error_messages,
-        'does_not_exist': 'Ингредиент не найден.',
-    }
-
-    def to_internal_value(self, data):
-        try:
-            return super().to_internal_value(data)
-        except serializers.ValidationError as exc:
-            if 'does_not_exist' in exc.get_codes():
-                raise NotFound(self.error_messages['does_not_exist'])
-            raise
 
 
 class AuthTokenSerializer(serializers.Serializer):
@@ -151,7 +135,7 @@ class SetAvatarSerializer(serializers.ModelSerializer):
 
 
 class RecipeIngredientWriteSerializer(serializers.Serializer):
-    id = NotFoundPrimaryKeyRelatedField(
+    id = IngredientPrimaryKeyRelatedField(
         queryset=Ingredient.objects.all(),
         source='ingredient',
     )

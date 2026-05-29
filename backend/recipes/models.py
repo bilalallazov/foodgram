@@ -19,8 +19,16 @@ from users.models import User
 
 
 class Tag(models.Model):
-    name = models.CharField(max_length=TAG_NAME_MAX_LENGTH, unique=True)
-    slug = models.SlugField(max_length=TAG_SLUG_MAX_LENGTH, unique=True)
+    name = models.CharField(
+        max_length=TAG_NAME_MAX_LENGTH,
+        unique=True,
+        verbose_name='name',
+    )
+    slug = models.SlugField(
+        max_length=TAG_SLUG_MAX_LENGTH,
+        unique=True,
+        verbose_name='slug',
+    )
 
     class Meta:
         ordering = ('name',)
@@ -32,8 +40,14 @@ class Tag(models.Model):
 
 
 class Ingredient(models.Model):
-    name = models.CharField(max_length=INGREDIENT_NAME_MAX_LENGTH)
-    measurement_unit = models.CharField(max_length=INGREDIENT_UNIT_MAX_LENGTH)
+    name = models.CharField(
+        max_length=INGREDIENT_NAME_MAX_LENGTH,
+        verbose_name='name',
+    )
+    measurement_unit = models.CharField(
+        max_length=INGREDIENT_UNIT_MAX_LENGTH,
+        verbose_name='measurement unit',
+    )
 
     class Meta:
         ordering = ('name',)
@@ -57,15 +71,28 @@ class Recipe(models.Model):
         related_name='recipes',
         verbose_name='author',
     )
-    name = models.CharField(max_length=RECIPE_NAME_MAX_LENGTH)
-    image = models.ImageField(upload_to='recipes/images/')
-    text = models.TextField()
+    name = models.CharField(
+        max_length=RECIPE_NAME_MAX_LENGTH,
+        verbose_name='name',
+    )
+    image = models.ImageField(
+        upload_to='recipes/images/',
+        verbose_name='image',
+    )
+    text = models.TextField(verbose_name='text')
     cooking_time = models.PositiveIntegerField(
         validators=[MinValueValidator(MIN_COOKING_TIME)],
         verbose_name='cooking time',
     )
-    pub_date = models.DateTimeField(auto_now_add=True, verbose_name='pub date')
-    tags = models.ManyToManyField(Tag, related_name='recipes')
+    pub_date = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='pub date',
+    )
+    tags = models.ManyToManyField(
+        Tag,
+        related_name='recipes',
+        verbose_name='tags',
+    )
 
     class Meta:
         ordering = ('-pub_date',)
@@ -83,7 +110,11 @@ class ShortLink(models.Model):
         related_name='short_link',
         verbose_name='recipe',
     )
-    code = models.SlugField(max_length=SHORT_LINK_CODE_MAX_LENGTH, unique=True)
+    code = models.SlugField(
+        max_length=SHORT_LINK_CODE_MAX_LENGTH,
+        unique=True,
+        verbose_name='code',
+    )
 
     class Meta:
         verbose_name = 'short link'

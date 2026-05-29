@@ -12,6 +12,7 @@ from rest_framework.views import APIView
 
 from api.filters import IngredientFilter, RecipeFilter
 from api.permissions import IsAuthorOrReadOnly
+from api.utils import build_shopping_list_text
 from api.serializers import (
     AuthTokenSerializer,
     IngredientSerializer,
@@ -200,8 +201,6 @@ class RecipeViewSet(viewsets.ModelViewSet):
             .annotate(amount=Sum('amount'))
             .order_by('ingredient__name')
         )
-        from api.utils import build_shopping_list_text
-
         content = build_shopping_list_text(ingredients)
         response = HttpResponse(content, content_type='text/plain')
         response['Content-Disposition'] = (

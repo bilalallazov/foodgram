@@ -1,4 +1,4 @@
-host: http://81.26.183.233
+host: 81.26.183.233
 vm_name: r-backend-vm-1670829377
 ssh_user: ubuntu
 email: admin@foodgram.ru

@@ -138,6 +138,27 @@ jobs:
             sh -c 'cp -r /app/build/. /out/' 2>/dev/null || true
 
           \$COMPOSE -f docker-compose.yml restart nginx || docker restart foodgram-proxy
+          chmod +x "\$HOME/foodgram/infra/start-foodgram.sh"
+          sudo tee /etc/systemd/system/foodgram.service > /dev/null <<UNIT
+[Unit]
+Description=Foodgram Docker Compose
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=ubuntu
+WorkingDirectory=/home/ubuntu/foodgram/infra
+ExecStart=/home/ubuntu/foodgram/infra/start-foodgram.sh
+TimeoutStartSec=600
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+          sudo systemctl daemon-reload
+          sudo systemctl enable foodgram.service
           \$COMPOSE -f docker-compose.yml ps
           curl -sf -o /dev/null -w "api:%{http_code}\n" http://127.0.0.1/api/recipes/
           EOF

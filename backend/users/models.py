@@ -15,8 +15,8 @@ class User(AbstractUser):
         unique=True,
         validators=[username_validator],
         help_text=(
-            'Required. 150 characters or fewer. Letters, digits and @/./+/-/_ '
-            'only.'
+            f'Required. {USERNAME_MAX_LENGTH} characters or fewer. '
+            'Letters, digits and @/./+/-/_ only.'
         ),
     )
     email = models.EmailField(
