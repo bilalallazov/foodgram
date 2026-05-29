@@ -2,6 +2,7 @@ import styles from './styles.module.css'
 import { LinkComponent, Icons, Popup } from '../index'
 import { useState } from 'react'
 import cn from 'classnames'
+import DefaultRecipeImage from '../../images/home-screen-bg.jpg'
 
 const Purchase = ({
   image,
@@ -40,7 +41,7 @@ const Purchase = ({
           alt={name}
           className={styles.purchaseImage}
           style={{
-            backgroundImage: `url(${image})`
+            backgroundImage: `url(${image || DefaultRecipeImage})`
           }}
         />
         <h3 className={styles.purchaseTitle}>

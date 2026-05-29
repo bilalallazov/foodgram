@@ -2,6 +2,7 @@ import styles from "./styles.module.css";
 import { useState } from "react";
 import { Button, LinkComponent, Popup } from "../index";
 import DefaultImage from "../../images/userpic-icon.jpg";
+import DefaultRecipeImage from "../../images/home-screen-bg.jpg";
 
 const countForm = (number, titles) => {
   number = Math.abs(number);
@@ -75,7 +76,7 @@ const Subscription = ({
                   title={
                     <div className={styles.subscriptionRecipe}>
                       <img
-                        src={recipe.image}
+                        src={recipe.image || DefaultRecipeImage}
                         alt={recipe.name}
                         className={styles.subscriptionRecipeImage}
                       />

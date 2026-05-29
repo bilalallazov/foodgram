@@ -16,6 +16,7 @@ import cn from "classnames";
 import { useRouteMatch, useParams, useHistory } from "react-router-dom";
 import MetaTags from "react-meta-tags";
 import DefaultImage from "../../images/userpic-icon.jpg";
+import DefaultRecipeImage from "../../images/home-screen-bg.jpg";
 import { useRecipe } from "../../utils/index.js";
 import api from "../../api";
 import { Notification } from "../../components/notification";
@@ -101,7 +102,7 @@ const SingleCard = ({ loadItem, updateOrders }) => {
         </MetaTags>
         <div className={styles["single-card"]}>
           <img
-            src={image}
+            src={image || DefaultRecipeImage}
             alt={name}
             className={styles["single-card__image"]}
           />

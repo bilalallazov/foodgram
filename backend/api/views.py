@@ -33,9 +33,9 @@ from recipes.models import (
     RecipeIngredient,
     ShoppingCart,
     ShortLink,
-    Subscription,
     Tag,
 )
+from users.models import Subscription
 
 User = get_user_model()
 
@@ -174,14 +174,14 @@ class RecipeViewSet(viewsets.ModelViewSet):
             'Recipe not in shopping cart.',
         )
 
-    @action(detail=True, methods=('get',))
+    @action(detail=True, methods=('get',), url_path='get-link')
     def get_link(self, request, pk=None):
         recipe = get_object_or_404(Recipe, pk=pk)
         link, _ = ShortLink.objects.get_or_create(
             recipe=recipe,
             defaults={'code': ShortLink.generate_unique_code()},
         )
-        short_link = request.build_absolute_uri(f'/s/{link.code}')
+        short_link = request.build_absolute_uri(f'/s/{link.code}/')
         return Response({'short-link': short_link})
 
     @action(

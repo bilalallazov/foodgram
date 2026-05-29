@@ -1,20 +1,43 @@
-import base64
 import os
+from io import BytesIO
 
 from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
 from django.core.management.base import BaseCommand
+from PIL import Image
 
 from recipes.models import Ingredient, Recipe, RecipeIngredient, Tag
 
 User = get_user_model()
 
-IMAGE_BYTES = base64.b64decode(
-    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42m'
-    'P8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
+RECIPE_COUNT = 7
+PLACEHOLDER_SIZE = (600, 400)
+PLACEHOLDER_COLORS = (
+    (255, 214, 165),
+    (255, 183, 178),
+    (198, 226, 191),
+    (197, 217, 232),
+    (230, 210, 240),
+    (255, 236, 179),
+    (188, 223, 197),
 )
 
-RECIPE_COUNT = 7
+
+def build_placeholder_image(index):
+    color = PLACEHOLDER_COLORS[index % len(PLACEHOLDER_COLORS)]
+    image = Image.new('RGB', PLACEHOLDER_SIZE, color)
+    buffer = BytesIO()
+    image.save(buffer, format='JPEG', quality=90)
+    return buffer.getvalue()
+
+
+def recipe_needs_image(recipe):
+    if not recipe.image or not recipe.image.name:
+        return True
+    try:
+        return recipe.image.size < 500
+    except (OSError, ValueError):
+        return True
 
 
 class Command(BaseCommand):
@@ -61,37 +84,44 @@ class Command(BaseCommand):
         )
         if not authors:
             return
+
         existing_count = Recipe.objects.count()
-        if existing_count >= RECIPE_COUNT:
-            self.stdout.write(
-                self.style.SUCCESS(
-                    f'Test data already loaded ({existing_count} recipes).'
+        if existing_count < RECIPE_COUNT:
+            for index in range(existing_count, RECIPE_COUNT):
+                author = authors[index % len(authors)]
+                recipe = Recipe(
+                    author=author,
+                    name=f'Тестовый рецепт {index + 1}',
+                    text='Описание тестового рецепта.',
+                    cooking_time=30 + index * 5,
                 )
-            )
-            return
-        for index in range(existing_count, RECIPE_COUNT):
-            author = authors[index % len(authors)]
-            recipe = Recipe(
-                author=author,
-                name=f'Тестовый рецепт {index + 1}',
-                text='Описание тестового рецепта.',
-                cooking_time=30 + index * 5,
-            )
-            recipe.image.save(
-                f'recipe_{index + 1}.png',
-                ContentFile(IMAGE_BYTES),
-                save=False,
-            )
-            recipe.save()
-            recipe.tags.set([tags[index % len(tags)]])
-            for ingredient in ingredients[:3]:
-                RecipeIngredient.objects.create(
-                    recipe=recipe,
-                    ingredient=ingredient,
-                    amount=100 + index * 10,
+                recipe.image.save(
+                    f'recipe_{index + 1}.jpg',
+                    ContentFile(build_placeholder_image(index)),
+                    save=False,
                 )
+                recipe.save()
+                recipe.tags.set([tags[index % len(tags)]])
+                for ingredient in ingredients[:3]:
+                    RecipeIngredient.objects.create(
+                        recipe=recipe,
+                        ingredient=ingredient,
+                        amount=100 + index * 10,
+                    )
+
+        fixed_images = 0
+        for index, recipe in enumerate(Recipe.objects.order_by('id')):
+            if recipe_needs_image(recipe):
+                recipe.image.save(
+                    f'recipe_{recipe.id}.jpg',
+                    ContentFile(build_placeholder_image(index)),
+                    save=True,
+                )
+                fixed_images += 1
+
         self.stdout.write(
             self.style.SUCCESS(
-                f'Test data loaded: {Recipe.objects.count()} recipes.'
+                f'Test data ready: {Recipe.objects.count()} recipes, '
+                f'fixed images: {fixed_images}.'
             )
         )

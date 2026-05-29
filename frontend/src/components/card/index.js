@@ -5,6 +5,7 @@ import { AuthContext } from "../../contexts";
 import { useContext, useState } from "react";
 import cn from "classnames";
 import DefaultImage from "../../images/userpic-icon.jpg";
+import DefaultRecipeImage from "../../images/home-screen-bg.jpg";
 
 const Card = ({
   name = "Без названия",
@@ -46,7 +47,7 @@ const Card = ({
         title={
           <div
             className={styles.card__image}
-            style={{ backgroundImage: `url(${image})` }}
+            style={{ backgroundImage: `url(${image || DefaultRecipeImage})` }}
           />
         }
       />

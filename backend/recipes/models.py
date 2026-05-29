@@ -220,31 +220,3 @@ class ShoppingCart(models.Model):
 
     def __str__(self):
         return f'{self.user} → {self.recipe}'
-
-
-class Subscription(models.Model):
-    user = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name='subscriptions',
-        verbose_name='subscriber',
-    )
-    author = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name='subscribers',
-        verbose_name='author',
-    )
-
-    class Meta:
-        verbose_name = 'subscription'
-        verbose_name_plural = 'subscriptions'
-        constraints = [
-            models.UniqueConstraint(
-                fields=('user', 'author'),
-                name='unique_subscription',
-            ),
-        ]
-
-    def __str__(self):
-        return f'{self.user} → {self.author}'

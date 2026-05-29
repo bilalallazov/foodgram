@@ -7,7 +7,6 @@ from recipes.models import (
     RecipeIngredient,
     ShoppingCart,
     ShortLink,
-    Subscription,
     Tag,
 )
 
@@ -64,9 +63,3 @@ class FavoriteAdmin(admin.ModelAdmin):
 class ShoppingCartAdmin(admin.ModelAdmin):
     list_display = ('user', 'recipe')
     search_fields = ('user__username', 'recipe__name')
-
-
-@admin.register(Subscription)
-class SubscriptionAdmin(admin.ModelAdmin):
-    list_display = ('user', 'author')
-    search_fields = ('user__username', 'author__username')

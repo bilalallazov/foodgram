@@ -11,10 +11,9 @@ from recipes.models import (
     Recipe,
     RecipeIngredient,
     ShoppingCart,
-    Subscription,
     Tag,
 )
-from users.models import User
+from users.models import Subscription, User
 
 
 class AuthTokenSerializer(serializers.Serializer):
@@ -150,6 +149,8 @@ class RecipeMinifiedSerializer(serializers.ModelSerializer):
         fields = ('id', 'name', 'image', 'cooking_time')
 
     def get_image(self, obj):
+        if not obj.image or not obj.image.name:
+            return None
         request = self.context.get('request')
         if request:
             return request.build_absolute_uri(obj.image.url)
@@ -196,6 +197,8 @@ class RecipeSerializer(serializers.ModelSerializer):
         return ShoppingCart.objects.filter(user=user, recipe=obj).exists()
 
     def get_image(self, obj):
+        if not obj.image or not obj.image.name:
+            return None
         request = self.context.get('request')
         if request:
             return request.build_absolute_uri(obj.image.url)

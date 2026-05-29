@@ -4,7 +4,7 @@ from django.contrib.auth.models import Group
 from django.utils.safestring import mark_safe
 from rest_framework.authtoken.models import TokenProxy
 
-from users.models import User
+from users.models import Subscription, User
 
 
 admin.site.unregister(Group)
@@ -38,3 +38,9 @@ class UserAdmin(BaseUserAdmin):
         if not obj.avatar:
             return '-'
         return mark_safe(f'<img src="{obj.avatar.url}" width="50" />')
+
+
+@admin.register(Subscription)
+class SubscriptionAdmin(admin.ModelAdmin):
+    list_display = ('user', 'author')
+    search_fields = ('user__username', 'author__username')
