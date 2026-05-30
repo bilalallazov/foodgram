@@ -1,11 +1,15 @@
 from django_filters import rest_framework as filters
 
-from recipes.models import Ingredient, Recipe
+from recipes.models import Ingredient, Recipe, Tag
 
 
 class RecipeFilter(filters.FilterSet):
-    tags = filters.AllValuesMultipleFilter(field_name='tags__slug')
-    author = filters.NumberFilter(field_name='author__id')
+    tags = filters.ModelMultipleChoiceFilter(
+        field_name='tags__slug',
+        to_field_name='slug',
+        queryset=Tag.objects.all(),
+        conjoined=False,
+    )
     is_favorited = filters.NumberFilter(method='filter_is_favorited')
     is_in_shopping_cart = filters.NumberFilter(
         method='filter_is_in_shopping_cart',
@@ -13,7 +17,7 @@ class RecipeFilter(filters.FilterSet):
 
     class Meta:
         model = Recipe
-        fields = ()
+        fields = ('author',)
 
     def filter_is_favorited(self, queryset, name, value):
         if value is None:
@@ -35,9 +39,16 @@ class RecipeFilter(filters.FilterSet):
             return queryset.filter(shopping_cart__user=user).distinct()
         return queryset.exclude(shopping_cart__user=user).distinct()
 
+    @property
+    def qs(self):
+        queryset = super().qs
+        if self.data.get('tags'):
+            queryset = queryset.distinct()
+        return queryset
+
 
 class IngredientFilter(filters.FilterSet):
-    name = filters.CharFilter(field_name='name', lookup_expr='istartswith')
+    name = filters.CharFilter(field_name='name', lookup_expr='startswith')
 
     class Meta:
         model = Ingredient

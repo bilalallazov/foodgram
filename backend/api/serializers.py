@@ -5,6 +5,7 @@ from drf_extra_fields.fields import Base64ImageField
 from rest_framework import serializers
 
 from api.fields import IngredientPrimaryKeyRelatedField
+from recipes.constants import RECIPE_NAME_MAX_LENGTH
 from recipes.models import (
     Favorite,
     Ingredient,
@@ -105,6 +106,10 @@ class UserCreateSerializer(serializers.ModelSerializer):
             'last_name',
             'password',
         )
+        extra_kwargs = {
+            'first_name': {'required': True, 'allow_blank': False},
+            'last_name': {'required': True, 'allow_blank': False},
+        }
 
     def create(self, validated_data):
         password = validated_data.pop('password')
@@ -126,7 +131,7 @@ class SetPasswordSerializer(serializers.Serializer):
 
 
 class SetAvatarSerializer(serializers.ModelSerializer):
-    avatar = Base64ImageField()
+    avatar = Base64ImageField(required=True)
 
     class Meta:
         model = User
@@ -212,6 +217,16 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
         queryset=Tag.objects.all(),
         many=True,
     )
+    cooking_time = serializers.IntegerField(min_value=1)
+
+    REQUIRED_FIELDS = (
+        'ingredients',
+        'tags',
+        'image',
+        'name',
+        'text',
+        'cooking_time',
+    )
 
     class Meta:
         model = Recipe
@@ -224,11 +239,62 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
             'cooking_time',
         )
 
+    def validate(self, attrs):
+        if self.instance is not None:
+            for field in self.REQUIRED_FIELDS:
+                if field not in self.initial_data:
+                    raise serializers.ValidationError(
+                        {field: 'This field is required.'},
+                    )
+        return attrs
+
+    def validate_image(self, value):
+        if not value:
+            raise serializers.ValidationError(
+                'This field may not be blank.',
+            )
+        return value
+
+    def validate_name(self, value):
+        if not value or not str(value).strip():
+            raise serializers.ValidationError(
+                'This field may not be blank.',
+            )
+        if len(value) > RECIPE_NAME_MAX_LENGTH:
+            raise serializers.ValidationError(
+                'Ensure this field has no more than '
+                f'{RECIPE_NAME_MAX_LENGTH} characters.',
+            )
+        return value
+
+    def validate_text(self, value):
+        if not value or not str(value).strip():
+            raise serializers.ValidationError(
+                'This field may not be blank.',
+            )
+        return value
+
+    def validate_tags(self, value):
+        if not value:
+            raise serializers.ValidationError(
+                'This field may not be empty.',
+            )
+        tag_ids = [tag.id for tag in value]
+        if len(tag_ids) != len(set(tag_ids)):
+            raise serializers.ValidationError(
+                'Tags must be unique.',
+            )
+        return value
+
     def validate_ingredients(self, value):
+        if not value:
+            raise serializers.ValidationError(
+                'This field may not be empty.',
+            )
         ingredient_ids = [item['ingredient'].id for item in value]
         if len(ingredient_ids) != len(set(ingredient_ids)):
             raise serializers.ValidationError(
-                'Ingredients must be unique.'
+                'Ingredients must be unique.',
             )
         return value
 

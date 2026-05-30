@@ -21,8 +21,13 @@ const HomePage = ({ updateOrders }) => {
   } = useRecipes()
 
   const getRecipes = ({ page = 1, tags }) => {
+    const activeTags = tags?.filter((tag) => tag.value) || []
+    const allTagsSelected =
+      tags?.length > 0 && activeTags.length === tags.length
+    const tagsForRequest = allTagsSelected ? [] : activeTags
+
     api
-      .getRecipes({ page, tags })
+      .getRecipes({ page, tags: tagsForRequest })
       .then(res => {
         const { results, count } = res
         setRecipes(results)
@@ -31,6 +36,9 @@ const HomePage = ({ updateOrders }) => {
   }
 
   useEffect(_ => {
+    if (tagsValue.length === 0) {
+      return
+    }
     getRecipes({ page: recipesPage, tags: tagsValue })
   }, [recipesPage, tagsValue])
 
